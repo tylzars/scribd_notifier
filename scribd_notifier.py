@@ -3,6 +3,7 @@ from time import sleep
 from bs4 import BeautifulSoup
 import argparse
 import requests
+from urllib.parse import urlparse, parse_qs
 
 #############
 # Argument Handling
@@ -46,10 +47,26 @@ for li_tag in elements.find_all('li'):
 #############
 # Read in from file for previous results
 old_titles = []
-with open("scribd_prev_search.txt", "r") as f:
-    old_titles = f.readlines()
 
-#TODO:Use query to name file to allow multiple queries
+query_params = parse_qs((urlparse(args.scribd_search_url).query))
+search_query = query_params.get('query', [''])[0].replace(" ", "_")
+
+try: 
+    with open(search_query + ".txt", "r") as f:
+        old_titles = f.readlines()
+    if args.verbose:
+        print("File existed, sucessfully opened.")
+except FileNotFoundError:
+    if args.verbose:
+        print(f"File doesn't exist, creating now.")
+    try: 
+        open(search_query + ".txt", "x")
+    except Exception as e:
+        print(f"{e} occurred creating file!")
+        exit(-1)
+except Exception as e:
+    print(f"{e} occured reading file!")
+    exit(-1)
 
 #############
 # Compare and Ping
@@ -57,26 +74,40 @@ new_titles.sort()
 old_titles.sort() # Redundant???
 
 i = 0
-for title in new_titles:
-    if title == old_titles[i]:
-        i += 1
-    else: 
+if len(old_titles) != 0:
+    for title in new_titles:
+        if title == old_titles[i]:
+            i += 1
+        else: 
+            if args.discord != None:
+                try:
+                    payload = {
+                        'content': f"New Document: {title}"
+                    }
+                    response = requests.post(args.discord, json=payload)
+                except Exception as e:
+                    print(f"Error {e} posting to Discord")
+            else: 
+                print(f"Found new title: {title}")
+else: 
+    for title in new_titles:
         if args.discord != None:
-            try:
-                payload = {
-                    'content': f"New Document: {title}"
-                }
-                response = requests.post(args.discord, json=payload)
-            except Exception as e:
-                print(f"Error {e} posting to Discord")
+                try:
+                    payload = {
+                        'content': f"New Document: {title}"
+                    }
+                    response = requests.post(args.discord, json=payload)
+                except Exception as e:
+                    print(f"Error {e} posting to Discord")
         else: 
             print(f"Found new title: {title}")
 
 #TODO:Add more notification methods
+#TODO:Cleanup this code
 
 #############
 # Save New Array over file
-with open("scribd_prev_search.txt", "w") as f:
+with open(search_query + ".txt", "w") as f:
     f.writelines(new_titles)
 
 #############
