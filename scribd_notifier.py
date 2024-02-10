@@ -10,6 +10,7 @@ from urllib.parse import urlparse, parse_qs
 parser = argparse.ArgumentParser()
 parser.add_argument('scribd_search_url', help='URL from Scribd Search')
 parser.add_argument('-d', '--discord', help='Discord Webhook URL')
+parser.add_argument('-s', '--slack', help='Slack Webhook URL')
 parser.add_argument('-v', '--verbose', action='store_true', help='Increase output verbosity')
 args = parser.parse_args()
 
@@ -76,7 +77,7 @@ old_titles.sort() # Redundant???
 i = 0
 if len(old_titles) != 0:
     for title in new_titles:
-        if title == old_titles[i]:
+        if title.upper().strip() == old_titles[i].upper().strip():
             i += 1
         else: 
             if args.discord != None:
@@ -87,6 +88,14 @@ if len(old_titles) != 0:
                     response = requests.post(args.discord, json=payload)
                 except Exception as e:
                     print(f"Error {e} posting to Discord")
+            elif args.slack != None:
+                try:
+                    payload = {
+                        'text': f"New Document: {title}"
+                    }
+                    response = requests.post(args.slack, json=payload)
+                except Exception as e:
+                    print(f"Error {e} posting to Slack")
             else: 
                 print(f"Found new title: {title}")
 else: 
@@ -99,16 +108,24 @@ else:
                     response = requests.post(args.discord, json=payload)
                 except Exception as e:
                     print(f"Error {e} posting to Discord")
+        elif args.slack != None:
+            try:
+                payload = {
+                    'text': f"New Document: {title}"
+                }
+                response = requests.post(args.slack, json=payload)
+            except Exception as e:
+                print(f"Error {e} posting to Slack")
         else: 
             print(f"Found new title: {title}")
 
-#TODO:Add more notification methods
 #TODO:Cleanup this code
+#TODO:Put link to document in message
 
 #############
 # Save New Array over file
 with open(search_query + ".txt", "w") as f:
-    f.writelines(new_titles)
+    f.writelines("%s\n" % l for l in new_titles)
 
 #############
 # Exit and cleanup
