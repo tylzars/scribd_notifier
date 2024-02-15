@@ -36,12 +36,15 @@ new_titles = []
 elements = soup.find('ul', class_="_1kBhLK _3S_oce _1gyGKg _3MyJWQ _3qn-sP _3NAnxI _2q7Jiq _3MqOhW")
 # XPATH = //*[@id="root"]/div/main/section/div[2]/div/div/ul
 
-for li_tag in elements.find_all('li'):
-    curr_title = li_tag.find(class_="visually_hidden").text
-    new_titles.append(curr_title)
-    
-    if args.verbose:
-        print(f"Found: {curr_title}")
+if elements != None:
+    for li_tag in elements.find_all('li'):
+        curr_title = li_tag.find(class_="visually_hidden").text
+        new_titles.append(curr_title)
+        
+        if args.verbose:
+            print(f"Found: {curr_title}")
+else:
+    print("No Documents Found In Query!")
 
 #TODO:Go For Multiple Pages if Exists... 
 
