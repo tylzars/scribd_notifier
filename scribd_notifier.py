@@ -14,6 +14,26 @@ parser.add_argument('-s', '--slack', help='Slack Webhook URL')
 parser.add_argument('-v', '--verbose', action='store_true', help='Increase output verbosity')
 args = parser.parse_args()
 
+##############
+# Helper Functions
+def post_to_discord(title, link, author):
+    try:
+        payload = {
+            'content': f"New Document: [{title}]({link}) from {author}"
+        }
+        response = requests.post(args.discord, json=payload)
+    except Exception as e:
+        print(f"Error {e} posting to Discord")
+
+def post_to_slack(title, link, author):
+    try:
+        payload = {
+            'text': f"New Document: <{link}|{title}> from {author}"
+        }
+        response = requests.post(args.slack, json=payload)
+    except Exception as e:
+        print(f"Error {e} posting to Slack")
+
 #############
 # Selenium Handling
 options = webdriver.ChromeOptions()
@@ -24,7 +44,7 @@ driver = webdriver.Chrome(options=options)
 # Get HTML Page
 scribd_url = args.scribd_search_url
 driver.get(scribd_url)
-sleep(2)
+sleep(5)
 soup = BeautifulSoup(driver.page_source, 'html.parser')
 
 if args.verbose:
@@ -34,12 +54,25 @@ if args.verbose:
 # Get All Title In Search Result
 new_titles = []
 elements = soup.find('ul', class_="_1kBhLK _3S_oce _1gyGKg _3MyJWQ _3qn-sP _3NAnxI _2q7Jiq _3MqOhW")
+if elements == None:
+    elements = soup.find('ul', class_="_1kBhLK _1gyGKg _3MyJWQ _3qn-sP _3NAnxI _2q7Jiq _3MqOhW")
 # XPATH = //*[@id="root"]/div/main/section/div[2]/div/div/ul
+# TODO:Switch to XPATH Parsing instead finding a guess to class names
 
 if elements != None:
     for li_tag in elements.find_all('li'):
+        # Get data
         curr_title = li_tag.find(class_="visually_hidden").text
-        new_titles.append(curr_title)
+        curr_title_link = li_tag.find('a', class_='FluidCell-module_linkOverlay__v8dDs')['href']
+        curr_title_author = li_tag.find('span', {'data-e2e': 'author'}).text
+        
+        # Build dict and add to list
+        curr_dict = {
+            'title' : curr_title,
+            'link' : curr_title_link,
+            'author' : curr_title_author
+        }
+        new_titles.append(curr_dict)
         
         if args.verbose:
             print(f"Found: {curr_title}")
@@ -72,63 +105,32 @@ except Exception as e:
     print(f"{e} occured reading file!")
     exit(-1)
 
+old_titles = [x.upper().strip() for x in old_titles]
+
 #############
 # Compare and Ping
-new_titles.sort()
-old_titles.sort() # Redundant???
-
-i = 0
 if len(old_titles) != 0:
-    for title in new_titles:
-        if title.upper().strip() == old_titles[i].upper().strip():
-            i += 1
-        else: 
+    for dict in new_titles:
+        if dict['title'].upper().strip() not in old_titles:
             if args.discord != None:
-                try:
-                    payload = {
-                        'content': f"New Document: {title}"
-                    }
-                    response = requests.post(args.discord, json=payload)
-                except Exception as e:
-                    print(f"Error {e} posting to Discord")
+                post_to_discord(dict['title'], dict['link'], dict['author'])
             elif args.slack != None:
-                try:
-                    payload = {
-                        'text': f"New Document: {title}"
-                    }
-                    response = requests.post(args.slack, json=payload)
-                except Exception as e:
-                    print(f"Error {e} posting to Slack")
+                post_to_slack(dict['title'], dict['link'], dict['author'])
             else: 
-                print(f"Found new title: {title}")
+                print(f"Found new title: {dict['title']}")
 else: 
-    for title in new_titles:
+    for dict in new_titles:
         if args.discord != None:
-                try:
-                    payload = {
-                        'content': f"New Document: {title}"
-                    }
-                    response = requests.post(args.discord, json=payload)
-                except Exception as e:
-                    print(f"Error {e} posting to Discord")
+            post_to_discord(dict['title'], dict['link'], dict['author'])
         elif args.slack != None:
-            try:
-                payload = {
-                    'text': f"New Document: {title}"
-                }
-                response = requests.post(args.slack, json=payload)
-            except Exception as e:
-                print(f"Error {e} posting to Slack")
+            post_to_slack(dict['title'], dict['link'], dict['author'])
         else: 
-            print(f"Found new title: {title}")
-
-#TODO:Cleanup this code
-#TODO:Put link to document in message
+            print(f"Found new title: {dict['title']}")
 
 #############
 # Save New Array over file
 with open(search_query + ".txt", "w") as f:
-    f.writelines("%s\n" % l for l in new_titles)
+    f.writelines("%s\n" % l['title'] for l in new_titles)
 
 #############
 # Exit and cleanup
