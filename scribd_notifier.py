@@ -43,12 +43,15 @@ driver = webdriver.Chrome(options=options)
 #############
 # Get HTML Page
 scribd_url = args.scribd_search_url
-driver.get(scribd_url)
-sleep(5)
-soup = BeautifulSoup(driver.page_source, 'html.parser')
+try:
+    driver.get(scribd_url)
+    sleep(5)
+    soup = BeautifulSoup(driver.page_source, 'html.parser')
 
-if args.verbose:
-    print(f"Got HTML Source from Scribd Search")
+    if args.verbose:
+        print(f"Got HTML source from Scribd search")
+except Exception as e:
+    print(f"Error {e} occured getting HTML source")
 
 #############
 # Get All Title In Search Result
@@ -78,8 +81,6 @@ if elements != None:
             print(f"Found: {curr_title}")
 else:
     print("No Documents Found In Query!")
-
-#TODO:Go For Multiple Pages if Exists... 
 
 #############
 # Read in from file for previous results
